@@ -4,19 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moaz Store | Gaming</title>
-    
-    <meta property="og:title" content="Moaz Store | عالم الجيمنج">
-<meta property="og:description" content="اشحن ألعابك بأفضل الأسعار مع متجر معاذ - سرعة وأمان.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://رابط-موقعك-هنا.com"> <meta property="og:image" id="og-image-meta" content="https://i.ibb.co/example/logo.png"> 
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Moaz Store">
-<meta name="twitter:description" content="أفضل متجر لخدمات الجيمنج.">
-<meta name="twitter:image" id="twitter-image-meta" content="https://i.ibb.co/example/logo.png">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
@@ -28,6 +15,28 @@
         .logo-circle { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #3b82f6; object-fit: cover; background: #111; }
         #auth-screen { position: fixed; inset: 0; z-index: 1000; background: #000; display: flex; justify-content: center; align-items: center; }
         .hidden { display: none !important; }
+        
+        /* تصميم خانة البحث */
+        .search-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            position: relative;
+        }
+        .search-input {
+            width: 100%;
+            padding: 1rem 3rem 1rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 15px;
+            color: white;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -58,7 +67,12 @@
         </nav>
 
         <main class="container mx-auto p-6">
-            <div id="offers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-10"></div>
+            <div class="search-container">
+                <input type="text" id="search-box" placeholder="ابحث عن شدات، جواهر، أو عروض..." class="search-input">
+                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+            </div>
+
+            <div id="offers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-4"></div>
         </main>
     </div>
 
@@ -72,9 +86,10 @@
         const dataPath = "moaz_store_data/";
         const userKey = "moaz_v4_session";
 
+        let allOffers = []; // لتخزين العروض برمجياً من أجل البحث
+
         VANTA.NET({ el: "#vanta-bg", mouseControls: true, touchControls: true, color: 0x3b82f6, backgroundColor: 0x0 });
 
-        // جلب اللوجو وتحديثه في الدائرة
         onValue(ref(db, dataPath + 'settings/logo'), (s) => {
             const logo = s.val();
             if(logo) {
@@ -93,6 +108,16 @@
 
         document.getElementById('logout-btn').onclick = () => { localStorage.removeItem(userKey); location.reload(); };
 
+        // وظيفة البحث
+        document.getElementById('search-box').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allOffers.filter(item => 
+                item.title.toLowerCase().includes(searchTerm) || 
+                (item.category && item.category.toLowerCase().includes(searchTerm))
+            );
+            renderOffers(filtered);
+        });
+
         function checkAuth() {
             const user = localStorage.getItem(userKey);
             if (user) {
@@ -103,27 +128,34 @@
             }
         }
 
+        function renderOffers(items) {
+            const grid = document.getElementById('offers-grid');
+            grid.innerHTML = "";
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "glass p-5 rounded-3xl border border-white/5 shadow-xl transition duration-300 hover:scale-[1.02]";
+                div.innerHTML = `
+                    <img src="${item.image}" class="w-full h-48 object-cover rounded-2xl mb-4">
+                    <h3 class="text-2xl font-bold mb-1">${item.title}</h3>
+                    <p class="text-blue-400 text-sm mb-4">${item.category || 'العاب'}</p>
+                    <div class="flex justify-between items-center mb-6"><span class="text-3xl font-black text-white">${item.price} EGP</span></div>
+                    <button class="order-btn w-full bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-black text-lg transition shadow-lg shadow-green-900/20">طلب عبر واتساب</button>
+                `;
+                div.querySelector('.order-btn').onclick = () => {
+                    push(ref(db, dataPath + 'orders'), { userName: localStorage.getItem(userKey), itemTitle: item.title, salePrice: item.price, costPrice: item.cost, status: 'pending', time: Date.now() });
+                    window.open(`https://wa.me/${item.adminPhone}?text=${encodeURIComponent('يا معاذ، محتاج عرض: ' + item.title)}`, '_blank');
+                };
+                grid.appendChild(div);
+            });
+        }
+
         function loadOffers() {
             onValue(ref(db, dataPath + 'offers'), (snapshot) => {
-                const grid = document.getElementById('offers-grid');
-                grid.innerHTML = "";
+                allOffers = [];
                 snapshot.forEach(child => {
-                    const item = child.val();
-                    const div = document.createElement('div');
-                    div.className = "glass p-5 rounded-3xl border border-white/5 shadow-xl transition duration-300 hover:scale-[1.02]";
-                    div.innerHTML = `
-                        <img src="${item.image}" class="w-full h-48 object-cover rounded-2xl mb-4">
-                        <h3 class="text-2xl font-bold mb-1">${item.title}</h3>
-                        <p class="text-blue-400 text-sm mb-4">${item.category || 'العاب'}</p>
-                        <div class="flex justify-between items-center mb-6"><span class="text-3xl font-black text-white">${item.price} EGP</span></div>
-                        <button class="order-btn w-full bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-black text-lg transition shadow-lg shadow-green-900/20">طلب عبر واتساب</button>
-                    `;
-                    div.querySelector('.order-btn').onclick = () => {
-                        push(ref(db, dataPath + 'orders'), { userName: localStorage.getItem(userKey), itemTitle: item.title, salePrice: item.price, costPrice: item.cost, status: 'pending', time: Date.now() });
-                        window.open(`https://wa.me/${item.adminPhone}?text=${encodeURIComponent('يا معاذ، محتاج عرض: ' + item.title)}`, '_blank');
-                    };
-                    grid.appendChild(div);
+                    allOffers.push(child.val());
                 });
+                renderOffers(allOffers);
             });
         }
         checkAuth();
