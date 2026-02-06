@@ -12,67 +12,53 @@
         body { font-family: 'Cairo', sans-serif; background: #000; color: white; margin: 0; overflow-x: hidden; }
         #vanta-bg { position: fixed; inset: 0; z-index: -1; }
         .glass { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
-        .logo-circle { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #3b82f6; object-fit: cover; background: #111; }
-        #auth-screen { position: fixed; inset: 0; z-index: 1000; background: #000; display: flex; justify-content: center; align-items: center; }
         .hidden { display: none !important; }
-        
-        /* تصميم خانة البحث */
-        .search-container {
-            max-width: 600px;
-            margin: 2rem auto;
-            position: relative;
+
+        /* تصميم علامة التحميل (Loader) */
+        #loader {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
-        .search-input {
-            width: 100%;
-            padding: 1rem 3rem 1rem 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 15px;
-            color: white;
-            outline: none;
-            transition: all 0.3s;
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid rgba(59, 130, 246, 0.2);
+            border-top: 5px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-        .search-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+    <div id="loader">
+        <div class="spinner"></div>
+        <p class="mt-4 text-blue-500 font-bold animate-pulse">جاري تحميل العروض...</p>
+    </div>
+
     <div id="vanta-bg"></div>
 
-    <div id="auth-screen">
-        <div class="glass p-10 rounded-3xl w-full max-w-sm text-center border-b-4 border-blue-600">
-            <div id="auth-logo-space" class="mb-6 flex flex-col items-center gap-3">
-                <h2 class="text-3xl font-bold text-blue-500 font-[Orbitron]">MOAZ STORE</h2>
-            </div>
+    <div id="auth-screen" class="hidden">
+        <div class="glass p-10 rounded-3xl w-full max-w-sm text-center border-b-4 border-blue-600 mx-auto mt-20">
+            <h2 class="text-3xl font-bold text-blue-500 font-[Orbitron] mb-6">MOAZ STORE</h2>
             <input type="text" id="user-input" placeholder="اكتب اسمك يا بطل" class="w-full p-4 bg-zinc-900 rounded-xl border border-zinc-700 mb-6 text-center text-white outline-none focus:border-blue-500">
-            <button id="login-btn" class="w-full bg-blue-600 py-4 rounded-xl font-bold text-xl shadow-lg shadow-blue-900/40">دخول المتجر</button>
+            <button id="login-btn" class="w-full bg-blue-600 py-4 rounded-xl font-bold text-xl">دخول</button>
         </div>
     </div>
 
     <div id="main-content" class="hidden">
         <nav class="p-4 glass flex justify-between items-center sticky top-0 z-50 border-b border-blue-500/20">
             <div class="flex items-center gap-3">
-                <div id="nav-logo-circle">
-                    <div class="logo-circle flex items-center justify-center font-bold text-blue-500">M</div>
-                </div>
-                <h1 class="text-xl font-black text-white font-[Orbitron] tracking-tight">MOAZ STORE</h1>
+                <div id="nav-logo-circle" class="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center font-bold">M</div>
+                <h1 class="text-xl font-black text-white font-[Orbitron]">MOAZ STORE</h1>
             </div>
-            <div class="flex items-center gap-4">
-                <span id="display-user" class="text-xs font-bold text-blue-200 bg-blue-900/20 px-3 py-1 rounded-full"></span>
-                <button id="logout-btn" class="text-[10px] text-red-400 font-bold hover:underline">خروج</button>
-            </div>
+            <div id="display-user" class="text-xs font-bold bg-blue-900/40 px-3 py-1 rounded-full text-blue-200"></div>
         </nav>
 
-        <main class="container mx-auto p-6">
-            <div class="search-container">
-                <input type="text" id="search-box" placeholder="ابحث عن شدات، جواهر، أو عروض..." class="search-input">
-                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+        <main class="container mx-auto p-4">
+            <div class="max-w-md mx-auto my-6">
+                <input type="text" id="search-box" placeholder="ابحث عن عرض..." class="w-full p-4 glass rounded-2xl outline-none border border-blue-500/20">
             </div>
-
-            <div id="offers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pt-4"></div>
+            <div id="offers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
         </main>
     </div>
 
@@ -84,81 +70,68 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const dataPath = "moaz_store_data/";
-        const userKey = "moaz_v4_session";
+        const userKey = "moaz_v6_session";
 
-        let allOffers = []; // لتخزين العروض برمجياً من أجل البحث
-
+        // تشغيل الخلفية
         VANTA.NET({ el: "#vanta-bg", mouseControls: true, touchControls: true, color: 0x3b82f6, backgroundColor: 0x0 });
 
-        onValue(ref(db, dataPath + 'settings/logo'), (s) => {
-            const logo = s.val();
-            if(logo) {
-                const imgTag = `<img src="${logo}" class="logo-circle shadow-lg shadow-blue-500/20">`;
-                document.getElementById('nav-logo-circle').innerHTML = imgTag;
-                document.getElementById('auth-logo-space').insertAdjacentHTML('afterbegin', imgTag);
-            }
-        });
+        // فحص الدخول وتحميل البيانات
+        const savedUser = localStorage.getItem(userKey);
+        
+        function init() {
+            onValue(ref(db, dataPath + 'offers'), (snapshot) => {
+                const data = [];
+                snapshot.forEach(child => { data.push(child.val()); });
+                renderOffers(data);
+                
+                // إخفاء شاشة التحميل بعد ما الداتا تيجي
+                document.getElementById('loader').classList.add('hidden');
+                
+                if (savedUser) {
+                    showMain(savedUser);
+                } else {
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                }
+            });
+
+            // تحميل اللوجو
+            onValue(ref(db, dataPath + 'settings/logo'), s => {
+                if(s.val()) document.getElementById('nav-logo-circle').innerHTML = `<img src="${s.val()}" class="w-full h-full rounded-full object-cover">`;
+            });
+        }
 
         document.getElementById('login-btn').onclick = () => {
             const name = document.getElementById('user-input').value;
             if (name.trim().length < 2) return alert("ادخل اسمك");
             localStorage.setItem(userKey, name);
-            checkAuth();
+            showMain(name);
         };
 
-        document.getElementById('logout-btn').onclick = () => { localStorage.removeItem(userKey); location.reload(); };
-
-        // وظيفة البحث
-        document.getElementById('search-box').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = allOffers.filter(item => 
-                item.title.toLowerCase().includes(searchTerm) || 
-                (item.category && item.category.toLowerCase().includes(searchTerm))
-            );
-            renderOffers(filtered);
-        });
-
-        function checkAuth() {
-            const user = localStorage.getItem(userKey);
-            if (user) {
-                document.getElementById('auth-screen').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('display-user').innerText = "🎮 " + user;
-                loadOffers();
-            }
+        function showMain(name) {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('display-user').innerText = "🎮 " + name;
         }
 
         function renderOffers(items) {
             const grid = document.getElementById('offers-grid');
-            grid.innerHTML = "";
-            items.forEach(item => {
-                const div = document.createElement('div');
-                div.className = "glass p-5 rounded-3xl border border-white/5 shadow-xl transition duration-300 hover:scale-[1.02]";
-                div.innerHTML = `
-                    <img src="${item.image}" class="w-full h-48 object-cover rounded-2xl mb-4">
+            grid.innerHTML = items.map(item => `
+                <div class="glass p-5 rounded-3xl border border-white/5 shadow-xl transition hover:scale-[1.02]">
+                    <img src="${item.image}" class="w-full h-48 object-cover rounded-2xl mb-4 bg-zinc-900">
                     <h3 class="text-2xl font-bold mb-1">${item.title}</h3>
-                    <p class="text-blue-400 text-sm mb-4">${item.category || 'العاب'}</p>
-                    <div class="flex justify-between items-center mb-6"><span class="text-3xl font-black text-white">${item.price} EGP</span></div>
-                    <button class="order-btn w-full bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-black text-lg transition shadow-lg shadow-green-900/20">طلب عبر واتساب</button>
-                `;
-                div.querySelector('.order-btn').onclick = () => {
-                    push(ref(db, dataPath + 'orders'), { userName: localStorage.getItem(userKey), itemTitle: item.title, salePrice: item.price, costPrice: item.cost, status: 'pending', time: Date.now() });
-                    window.open(`https://wa.me/${item.adminPhone}?text=${encodeURIComponent('يا معاذ، محتاج عرض: ' + item.title)}`, '_blank');
-                };
-                grid.appendChild(div);
-            });
+                    <p class="text-blue-400 text-sm mb-4">${item.category || 'ألعاب'}</p>
+                    <span class="text-3xl font-black block mb-6">${item.price} EGP</span>
+                    <button onclick="sendOrder('${item.title}', '${item.price}', '${item.cost}', '${item.adminPhone}')" class="w-full bg-blue-600 py-4 rounded-2xl font-bold">طلب الآن</button>
+                </div>
+            `).join('');
         }
 
-        function loadOffers() {
-            onValue(ref(db, dataPath + 'offers'), (snapshot) => {
-                allOffers = [];
-                snapshot.forEach(child => {
-                    allOffers.push(child.val());
-                });
-                renderOffers(allOffers);
-            });
-        }
-        checkAuth();
+        window.sendOrder = (title, price, cost, phone) => {
+            push(ref(db, dataPath + 'orders'), { userName: localStorage.getItem(userKey), itemTitle: title, salePrice: price, costPrice: cost, status: 'pending', time: Date.now() });
+            window.open(`https://wa.me/${phone}?text=طلب: ${title}`, '_blank');
+        };
+
+        init(); // بدأ التشغيل
     </script>
 </body>
 </html>
